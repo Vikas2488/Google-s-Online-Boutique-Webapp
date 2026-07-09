@@ -1,64 +1,82 @@
-deployment-tests:
-  runs-on: ubuntu-24.04
-  needs: code-tests
+name: Continuous Integration
 
-  permissions:
-    contents: read
+on:
+  push:
+    branches:
+      - main
 
-  env:
-    AWS_REGION: ap-south-1
-    CLUSTER_NAME: my-eks-cluster
-    NAMESPACE: production
+jobs:
+  code-tests:
+    runs-on: ubuntu-24.04
 
-  steps:
-    - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Run Tests
+        run: |
+          echo "Run your unit tests here"
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+  deployment-tests:
+    runs-on: ubuntu-24.04
+    needs: code-tests
 
-    - name: Configure kubectl
-      run: |
-        aws eks update-kubeconfig \
-          --region $AWS_REGION \
-          --name $CLUSTER_NAME
+    permissions:
+      contents: read
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    env:
+      AWS_REGION: ap-south-1
+      CLUSTER_NAME: your-eks-cluster
+      NAMESPACE: production
 
-    - name: Install Skaffold
-      run: |
-        curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
-        chmod +x skaffold
-        sudo mv skaffold /usr/local/bin
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Create Namespace
-      run: |
-        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Deploy Application
-      run: |
-        skaffold config set --global local-cluster false
-        skaffold run \
-          --default-repo=${{ steps.login-ecr.outputs.registry }}/online-boutique \
-          --tag=${{ github.sha }} \
-          --namespace=$NAMESPACE
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Wait For Deployments
-      run: |
-        kubectl wait deployment --all \
-          --for=condition=Available \
-          --timeout=600s \
-          -n $NAMESPACE
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
 
-    - name: Verify Deployment
-      run: |
-        kubectl get pods -n $NAMESPACE
-        kubectl get svc -n $NAMESPACE
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Skaffold
+        run: |
+          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
+          chmod +x skaffold
+          sudo mv skaffold /usr/local/bin
+
+      - name: Create Namespace
+        run: |
+          kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Build and Deploy
+        run: |
+          skaffold config set --global local-cluster false
+          skaffold run \
+            --default-repo=${{ steps.login-ecr.outputs.registry }}/online-boutique \
+            --tag=${{ github.sha }} \
+            --namespace=$NAMESPACE
+
+      - name: Wait For Pods
+        run: |
+          kubectl wait deployment --all \
+            --for=condition=Available \
+            --timeout=600s \
+            -n $NAMESPACE
+
+      - name: Verify Deployment
+        run: |
+          kubectl get pods -n $NAMESPACE
+          kubectl get svc -n $NAMESPACE
