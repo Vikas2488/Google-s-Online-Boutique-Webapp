@@ -61,9 +61,44 @@ jobs:
         run: |
           kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Create ECR Repositories
+        run: |
+          REPOS=(
+            adservice
+            cartservice
+            checkoutservice
+            currencyservice
+            emailservice
+            frontend
+            loadgenerator
+            paymentservice
+            productcatalogservice
+            recommendationservice
+            shippingservice
+          )
+
+          for repo in "${REPOS[@]}"; do
+            echo "Checking online-boutique/$repo"
+
+            aws ecr describe-repositories \
+              --repository-names online-boutique/$repo \
+              --region $AWS_REGION >/dev/null 2>&1
+
+            if [ $? -ne 0 ]; then
+              echo "Creating online-boutique/$repo"
+
+              aws ecr create-repository \
+                --repository-name online-boutique/$repo \
+                --region $AWS_REGION
+            else
+              echo "Repository already exists."
+            fi
+          done
+
       - name: Build and Deploy
         run: |
           skaffold config set --global local-cluster false
+
           skaffold run \
             --default-repo=${{ steps.login-ecr.outputs.registry }}/online-boutique \
             --tag=${{ github.sha }} \
@@ -71,12 +106,21 @@ jobs:
 
       - name: Wait For Pods
         run: |
-          kubectl wait deployment --all \
+          kubectl wait deployment \
+            --all \
             --for=condition=Available \
             --timeout=600s \
             -n $NAMESPACE
 
       - name: Verify Deployment
         run: |
+          echo "Pods:"
           kubectl get pods -n $NAMESPACE
+
+          echo ""
+          echo "Services:"
           kubectl get svc -n $NAMESPACE
+
+          echo ""
+          echo "Ingress:"
+          kubectl get ingress -n $NAMESPACE || true
