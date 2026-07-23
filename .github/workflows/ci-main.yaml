@@ -25,7 +25,7 @@ jobs:
 
     env:
       AWS_REGION: ap-south-1
-      CLUSTER_NAME: your-eks-cluster
+      CLUSTER_NAME: devops-cluster-1
       NAMESPACE: production
 
     steps:
