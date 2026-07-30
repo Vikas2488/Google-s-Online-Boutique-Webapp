@@ -70,13 +70,6 @@ jobs:
 
           skaffold version
 
-      - name: Setup Skaffold
-        uses: hiberbee/github-action-setup-skaffold@latest
-
-      - name: Verify Skaffold
-        run: |
-          skaffold version
-
       - name: Debug Skaffold File
         run: |
           echo "===== Current directory ====="
