@@ -57,6 +57,18 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        
+      - name: Install Skaffold
+        run: |
+          SKAFFOLD_VERSION=v2.16.1
+
+          wget https://github.com/GoogleContainerTools/skaffold/releases/download/${SKAFFOLD_VERSION}/skaffold-linux-amd64 \
+            -O skaffold
+
+          chmod +x skaffold
+          sudo mv skaffold /usr/local/bin/skaffold
+
+          skaffold version
 
       - name: Setup Skaffold
         uses: hiberbee/github-action-setup-skaffold@latest
@@ -90,11 +102,6 @@ jobs:
           echo ""
           echo "===== Diagnose ====="
           skaffold diagnose
-
-      - name: Create Namespace
-        run: |
-          kubectl create namespace $NAMESPACE \
-            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create Namespace
         run: |
