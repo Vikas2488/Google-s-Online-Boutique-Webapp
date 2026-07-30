@@ -65,6 +65,29 @@ jobs:
           sudo mv skaffold /usr/local/bin
           skaffold version
 
+      - name: Debug Skaffold File
+        run: |
+          echo "Current directory:"
+          pwd
+
+          echo ""
+          echo "Files:"
+          ls -la
+
+          echo ""
+          echo "skaffold.yaml:"
+          cat skaffold.yaml
+
+      - name: Create Namespace
+        run: |
+          kubectl create namespace $NAMESPACE \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create ECR Repositories
+        shell: bash
+        run: |
+          ...
+
       - name: Create Namespace
         run: |
           kubectl create namespace $NAMESPACE \
