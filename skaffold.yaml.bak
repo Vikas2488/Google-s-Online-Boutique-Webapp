@@ -1,0 +1,38 @@
+      - name: Create ECR Repositories
+        shell: bash
+        run: |
+          REPOS=(
+            adservice
+            cartservice
+            checkoutservice
+            currencyservice
+            emailservice
+            frontend
+            loadgenerator
+            paymentservice
+            productcatalogservice
+            recommendationservice
+            shippingservice
+            shoppingassistantservice
+          )
+
+          for repo in "${REPOS[@]}"; do
+
+            REPO="online-boutique/$repo"
+
+            echo "Processing $REPO"
+
+            if aws ecr describe-repositories \
+              --repository-names "$REPO" \
+              --region "$AWS_REGION" >/dev/null 2>&1
+            then
+              echo "✅ Repository exists."
+            else
+              echo "🚀 Creating $REPO"
+
+              aws ecr create-repository \
+                --repository-name "$REPO" \
+                --region "$AWS_REGION"
+            fi
+
+          done
