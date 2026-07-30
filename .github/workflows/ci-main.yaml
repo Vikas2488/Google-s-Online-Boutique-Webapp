@@ -83,11 +83,6 @@ jobs:
           kubectl create namespace $NAMESPACE \
           --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create ECR Repositories
-        shell: bash
-        run: |
-          ...
-
       - name: Create Namespace
         run: |
           kubectl create namespace $NAMESPACE \
