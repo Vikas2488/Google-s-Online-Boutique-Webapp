@@ -6,19 +6,8 @@ on:
       - main
 
 jobs:
-  code-tests:
+  deploy:
     runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Tests
-        run: |
-          echo "Run your unit tests here"
-
-  deployment-tests:
-    runs-on: ubuntu-24.04
-    needs: code-tests
 
     permissions:
       contents: read
@@ -29,7 +18,8 @@ jobs:
       NAMESPACE: production
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -38,17 +28,34 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Verify AWS Account
+        run: |
+          aws sts get-caller-identity
+          aws configure list
+
+      - name: Verify EKS Cluster
+        run: |
+          echo "Available clusters:"
+          aws eks list-clusters --region $AWS_REGION
+
+          echo "Checking cluster..."
+          aws eks describe-cluster \
+            --name $CLUSTER_NAME \
+            --region $AWS_REGION
 
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
-            --name $CLUSTER_NAME
+            --name $CLUSTER_NAME \
+            --region $AWS_REGION
 
-      - name: Set up Docker Buildx
+          kubectl get nodes
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Install Skaffold
@@ -56,12 +63,15 @@ jobs:
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
           chmod +x skaffold
           sudo mv skaffold /usr/local/bin
+          skaffold version
 
       - name: Create Namespace
         run: |
-          kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace $NAMESPACE \
+          --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create ECR Repositories
+        shell: bash
         run: |
           REPOS=(
             adservice
@@ -78,21 +88,24 @@ jobs:
           )
 
           for repo in "${REPOS[@]}"; do
-            echo "Checking online-boutique/$repo"
 
-            aws ecr describe-repositories \
-              --repository-names online-boutique/$repo \
-              --region $AWS_REGION >/dev/null 2>&1
+            REPO="online-boutique/$repo"
 
-            if [ $? -ne 0 ]; then
-              echo "Creating online-boutique/$repo"
+            echo "Processing $REPO"
+
+            if aws ecr describe-repositories \
+              --repository-names "$REPO" \
+              --region "$AWS_REGION" >/dev/null 2>&1
+            then
+              echo "Repository exists."
+            else
+              echo "Creating repository..."
 
               aws ecr create-repository \
-                --repository-name online-boutique/$repo \
-                --region $AWS_REGION
-            else
-              echo "Repository already exists."
+                --repository-name "$REPO" \
+                --region "$AWS_REGION"
             fi
+
           done
 
       - name: Build and Deploy
@@ -104,7 +117,7 @@ jobs:
             --tag=${{ github.sha }} \
             --namespace=$NAMESPACE
 
-      - name: Wait For Pods
+      - name: Wait for Deployments
         run: |
           kubectl wait deployment \
             --all \
@@ -112,15 +125,19 @@ jobs:
             --timeout=600s \
             -n $NAMESPACE
 
-      - name: Verify Deployment
+      - name: Deployment Status
         run: |
-          echo "Pods:"
+          echo "Pods"
           kubectl get pods -n $NAMESPACE
 
           echo ""
-          echo "Services:"
+          echo "Services"
           kubectl get svc -n $NAMESPACE
 
           echo ""
-          echo "Ingress:"
+          echo "Deployments"
+          kubectl get deployment -n $NAMESPACE
+
+          echo ""
+          echo "Ingress"
           kubectl get ingress -n $NAMESPACE || true
