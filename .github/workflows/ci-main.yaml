@@ -58,30 +58,43 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Install Skaffold
+      - name: Setup Skaffold
+        uses: hiberbee/github-action-setup-skaffold@latest
+
+      - name: Verify Skaffold
         run: |
-          curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
-          chmod +x skaffold
-          sudo mv skaffold /usr/local/bin
           skaffold version
 
       - name: Debug Skaffold File
         run: |
-          echo "Current directory:"
+          echo "===== Current directory ====="
           pwd
 
           echo ""
-          echo "Files:"
+          echo "===== Files ====="
           ls -la
 
           echo ""
-          echo "skaffold.yaml:"
+          echo "===== skaffold.yaml ====="
           cat skaffold.yaml
+
+      - name: Validate Skaffold
+        run: |
+          echo "===== Skaffold Version ====="
+          skaffold version
+
+          echo ""
+          echo "===== First 20 lines ====="
+          head -20 skaffold.yaml
+
+          echo ""
+          echo "===== Diagnose ====="
+          skaffold diagnose
 
       - name: Create Namespace
         run: |
           kubectl create namespace $NAMESPACE \
-          --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create Namespace
         run: |
