@@ -25,7 +25,7 @@ jobs:
 
     env:
       AWS_REGION: ap-south-1
-      CLUSTER_NAME: devops-cluster-1
+      CLUSTER_NAME: vikas-cluster
       NAMESPACE: production
 
     steps:
