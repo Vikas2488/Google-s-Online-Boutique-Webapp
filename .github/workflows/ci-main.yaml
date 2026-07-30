@@ -82,7 +82,17 @@ jobs:
           echo ""
           echo "===== skaffold.yaml ====="
           cat skaffold.yaml
-
+          
+      - name: Find Skaffold File
+        run: |
+         pwd
+         find . -name "skaffold.yaml" -o -name "skaffold.yml"
+         
+      - name: Show Skaffold
+        run: |
+          echo "===== skaffold.yaml ====="
+          cat ./skaffold.yaml
+         
       - name: Validate Skaffold
         run: |
           echo "===== Skaffold Version ====="
